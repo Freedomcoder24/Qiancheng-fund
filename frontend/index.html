@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>钱程似锦 Qiancheng - 个人基金数据终端</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <!-- ECharts 图表库（CDN 加载失败时脚本会降级为文字提示，不影响其他功能） -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+</head>
+<body>
+  <!-- ============ 顶部导航 ============ -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <h1>钱程似锦</h1>
+        <p class="brand-sub">个人基金智能分析系统</p>
+      </div>
+      <div class="topbar-meta">
+        <!-- 数据来自后端最新已确认净值，不使用"实时"字样 -->
+        <span id="nav-date-info">数据加载中...</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- ============ 全局免责声明（Phase 12，固定醒目横幅） ============ -->
+    <section class="global-disclaimer">
+      以上内容基于历史数据及模型分析，仅用于投资决策辅助，不代表未来收益，不构成投资建议。基金投资有风险，过往表现不代表未来表现。系统不会自动进行任何交易。
+    </section>
+
+    <!-- ============ 账户总览 ============ -->
+    <section class="summary-cards" id="summary-cards">
+      <div class="card">
+        <p class="card-label">总投入</p>
+        <p class="card-value" id="total-invested">--</p>
+      </div>
+      <div class="card">
+        <p class="card-label">当前市值</p>
+        <p class="card-value" id="total-asset">--</p>
+        <p class="card-sub">基于最新已确认净值</p>
+      </div>
+      <div class="card">
+        <p class="card-label">累计收益</p>
+        <p class="card-value" id="total-profit">--</p>
+        <p class="card-sub" id="total-profit-rate"></p>
+      </div>
+      <div class="card">
+        <p class="card-label">持仓数量</p>
+        <p class="card-value" id="holding-count">--</p>
+      </div>
+      <div class="card">
+        <p class="card-label">盈利持仓</p>
+        <p class="card-value" id="win-count">--</p>
+        <p class="card-sub">收益 &gt; 0 的持仓数</p>
+      </div>
+    </section>
+
+    <!-- 无持仓时的空状态引导（不显示一排 ¥0） -->
+    <section class="panel empty-hero" id="empty-hero" style="display: none;">
+      <p class="empty-title">还没有持仓</p>
+      <p class="empty-desc">添加第一只基金，开始使用钱程似锦。</p>
+      <button class="btn" id="empty-add-btn">+ 添加持仓</button>
+    </section>
+
+    <!-- ============ 我的投资目标（Phase 12，视觉置顶） ============ -->
+    <section class="panel" id="goal-panel">
+      <div class="panel-head">
+        <h2>我的投资目标</h2>
+        <div class="head-actions">
+          <button class="btn btn-light btn-sm collapse-btn" data-target="goal-panel">折叠</button>
+        </div>
+      </div>
+      <p class="panel-tip">
+        设定一个目标收益率，系统帮你算清楚：现在赚多少、离目标还有多远、
+        有哪些需要注意的风险。目标只是你自己的参考线，
+        达到目标时系统只提示状态，不会给你任何卖出或买入指令
+      </p>
+
+      <!-- 目标设置行 -->
+      <div class="query-row">
+        <input type="number" id="goal-rate-input" class="text-input goal-rate-input"
+               placeholder="目标收益率（%），如 10" step="0.1" min="0.1" max="500" />
+        <button class="btn" id="goal-save-btn">保存目标</button>
+      </div>
+      <p class="empty-tip" id="goal-msg" style="display: none;"></p>
+
+      <!-- 目标进度（未设置时隐藏，显示引导） -->
+      <div id="goal-progress-box" style="display: none;">
+        <div class="goal-progress-head">
+          <div class="goal-link-text" id="goal-link-text"></div>
+          <span class="level-badge" id="goal-status-badge" style="display: none;"></span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="goal-progress-fill" style="width: 0%;"></div>
+        </div>
+
+        <!-- 账户级指标：同屏展示 收益 / 距离 / 历史 / 风险（目标 ≠ 止盈条件） -->
+        <div class="detail-grid goal-metrics">
+          <div>
+            <p class="detail-label">当前收益率</p>
+            <p class="detail-value" id="goal-current-rate">--</p>
+          </div>
+          <div>
+            <p class="detail-label">目标收益率</p>
+            <p class="detail-value" id="goal-target-rate">--</p>
+          </div>
+          <div>
+            <p class="detail-label">距离目标</p>
+            <p class="detail-value" id="goal-gap">--</p>
+            <p class="detail-sub" id="goal-required-profit"></p>
+          </div>
+          <div>
+            <p class="detail-label">近 90 天组合回撤</p>
+            <p class="detail-value" id="goal-drawdown">--</p>
+            <p class="detail-sub" id="goal-volatility"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 未设置目标 / 无持仓时的引导 -->
+      <p class="empty-tip" id="goal-guide" style="display: none;"></p>
+
+      <!-- 持仓明细（每只基金的目标进度与风险指标） -->
+      <table class="holdings-table goal-holdings-table" id="goal-holdings-table" style="display: none;">
+        <thead>
+          <tr>
+            <th>基金</th>
+            <th>当前收益率</th>
+            <th>距离目标</th>
+            <th>目标状态</th>
+            <th>近180天回撤</th>
+            <th>近30天波动</th>
+          </tr>
+        </thead>
+        <tbody id="goal-holdings-tbody"></tbody>
+      </table>
+
+      <!-- 数据不足说明（不伪造数据） -->
+      <p class="empty-tip monitor-issues" id="goal-issues" style="display: none;"></p>
+
+      <!-- AI 目标结论（只有三种状态，只解释不决策） -->
+      <div class="goal-conclusion-box">
+        <button class="btn btn-light" id="goal-ai-btn" disabled>生成 AI 目标结论</button>
+        <p class="empty-tip" id="goal-ai-status" style="display: none;"></p>
+        <p class="empty-tip ai-loading" id="goal-ai-loading" style="display: none;">
+          AI 正在解读目标进度数据，请稍候...
+        </p>
+        <div id="goal-ai-result" style="display: none;">
+          <p class="ai-meta" id="goal-ai-meta"></p>
+          <p><span class="level-badge" id="goal-ai-badge"></span></p>
+          <p class="ai-section-body" id="goal-ai-reason"></p>
+          <ul class="ai-risk-list" id="goal-ai-risks"></ul>
+        </div>
+        <p class="empty-tip ai-error" id="goal-ai-error" style="display: none;"></p>
+      </div>
+
+      <p class="disclaimer" id="goal-disclaimer">
+        目标收益率仅为你自己设定的参考线，不代表未来收益；系统不会据此进行任何交易操作，也不构成投资建议。
+      </p>
+    </section>
+
+    <!-- ============ 基金关注（Phase 12，候选池：符合量化筛选条件，不是推荐） ============ -->
+    <section class="panel" id="candidates-panel">
+      <div class="panel-head">
+        <h2>基金关注</h2>
+        <div class="head-actions">
+          <button class="btn btn-light btn-sm collapse-btn" data-target="candidates-panel">折叠</button>
+        </div>
+      </div>
+      <p class="panel-sub-title">符合当前量化筛选条件的候选基金</p>
+      <p class="panel-tip">
+        由后端基于公开历史数据自动筛选：按你设置的筛选条件请求公开排行（各类别近 1 年收益前 15），
+        过滤后逐只校验近 180 天净值表现。候选池只是筛选结果，
+        不构成任何推荐，也不预测未来表现
+      </p>
+
+      <!-- AI 市场背景来源标注（醒目） -->
+      <p class="ai-banner">
+        市场背景来自 AI 模型公开知识，非实时新闻，可能过时；候选池数据全部基于公开历史净值。
+      </p>
+
+      <!-- 筛选条件（Phase 13：用户可设置，存库，重启不丢） -->
+      <div class="query-row filter-row" id="filter-form">
+        <span class="filter-label">筛选条件：</span>
+        <label class="filter-check">
+          <input type="checkbox" id="filter-type-stock" checked> 股票型
+        </label>
+        <label class="filter-check">
+          <input type="checkbox" id="filter-type-mixed" checked> 混合型
+        </label>
+        <input type="number" id="filter-min-return-1y" class="text-input filter-input"
+               step="0.1" min="-100" max="1000" placeholder="近1年收益下限（%），0=不过滤">
+        <button class="btn btn-light" id="filter-save-btn">保存筛选条件</button>
+      </div>
+      <p class="empty-tip ai-error" id="filter-msg" style="display: none;"></p>
+      <p class="panel-tip" id="filter-desc" style="display: none;"></p>
+
+      <div class="query-row">
+        <button class="btn" id="candidates-load-btn">加载候选池</button>
+        <button class="btn btn-light" id="candidates-ai-btn" disabled>AI 解释入选原因</button>
+      </div>
+
+      <p class="empty-tip" id="candidates-loading" style="display: none;">
+        正在筛选候选基金（需要逐只校验历史数据，约需十几秒）...
+      </p>
+      <p class="empty-tip ai-loading" id="candidates-ai-loading" style="display: none;"></p>
+      <p class="empty-tip" id="candidates-guide" style="display: none;">
+        点击「加载候选池」开始筛选（手动加载，避免不必要的请求）
+      </p>
+      <p class="empty-tip ai-error" id="candidates-error" style="display: none;"></p>
+
+      <!-- 候选池表格（纯文本渲染） -->
+      <table class="holdings-table candidates-table" id="candidates-table" style="display: none;">
+        <thead>
+          <tr>
+            <th>基金</th>
+            <th>类型</th>
+            <th>近1年</th>
+            <th>近6月</th>
+            <th>近3月</th>
+            <th>近180天</th>
+            <th>180天回撤</th>
+            <th>30天大波动</th>
+          </tr>
+        </thead>
+        <tbody id="candidates-tbody"></tbody>
+      </table>
+      <p class="panel-tip" id="candidates-meta" style="display: none;"></p>
+
+      <p class="empty-tip monitor-issues" id="candidates-issues" style="display: none;"></p>
+
+      <!-- AI 解读结果 -->
+      <div id="candidates-ai-result" style="display: none;">
+        <p class="ai-meta" id="candidates-ai-meta"></p>
+        <div class="ai-section">
+          <h4>候选池整体说明</h4>
+          <p class="ai-section-body" id="candidates-overview"></p>
+        </div>
+        <div class="ai-section" id="candidates-highlights-section">
+          <h4>入选原因（为什么符合当前筛选条件）</h4>
+          <ul class="ai-risk-list" id="candidates-highlights"></ul>
+        </div>
+        <div class="ai-section" id="candidates-cautions-section">
+          <h4>共同风险提示</h4>
+          <ul class="ai-risk-list" id="candidates-cautions"></ul>
+        </div>
+        <div class="ai-section" id="candidates-background-section">
+          <h4>市场背景（AI 公开知识，非实时，可能过时）</h4>
+          <p class="ai-section-body" id="candidates-background"></p>
+        </div>
+      </div>
+      <p class="empty-tip ai-error" id="candidates-ai-error" style="display: none;"></p>
+
+      <p class="disclaimer" id="candidates-disclaimer">
+        候选池仅表示符合当前量化筛选条件，不代表任何推荐或未来收益判断；系统不会自动进行任何交易。
+      </p>
+    </section>
+
+    <!-- ============ 智能监控 → 风险详情（Phase 12 改名并默认折叠弱化） ============ -->
+    <section class="panel collapsed" id="monitor-panel">
+      <div class="panel-head">
+        <h2>风险详情</h2>
+        <div class="head-actions">
+          <button class="btn btn-light btn-sm" id="monitor-refresh-btn">重新检查</button>
+          <button class="btn btn-light btn-sm collapse-btn" data-target="monitor-panel">展开</button>
+        </div>
+      </div>
+      <p class="panel-tip">
+        固定规则检查：单日涨跌幅异常 / 持仓集中度 / 近 90 天最大回撤 / 近期异常波动，
+        分为 提示 / 注意 / 高风险 三级
+      </p>
+
+      <p class="empty-tip" id="monitor-loading" style="display: none;">正在检查监控规则...</p>
+
+      <!-- 提醒列表（由 JS 按 DOM 方式构建，纯文本渲染） -->
+      <div class="monitor-list" id="monitor-list"></div>
+
+      <!-- 无提醒时的整体说明 -->
+      <p class="empty-tip monitor-all-clear" id="monitor-empty" style="display: none;"></p>
+
+      <!-- 数据不足 / 接口异常说明（不伪造数据，如实展示） -->
+      <p class="empty-tip monitor-issues" id="monitor-issues" style="display: none;"></p>
+
+      <p class="disclaimer">
+        监控提醒由固定规则自动生成，仅供参考，不构成投资建议，也不构成任何买卖建议；
+        系统不会进行任何自动交易操作。
+      </p>
+    </section>
+
+    <!-- ============ 最近一次自动检查（Phase 8 定时任务快照） ============ -->
+    <section class="panel" id="auto-panel">
+      <div class="panel-head">
+        <h2>最近一次自动检查</h2>
+        <div class="head-actions">
+          <button class="btn btn-light btn-sm collapse-btn" data-target="auto-panel">折叠</button>
+        </div>
+      </div>
+      <p class="panel-tip">
+        后台定时任务按配置间隔自动执行风险检查并保存快照（间隔可在 .env 的
+        AUTO_MONITOR_INTERVAL_MINUTES 配置）
+      </p>
+
+      <p class="empty-tip" id="auto-loading" style="display: none;">正在加载自动检查记录...</p>
+
+      <!-- 无快照时的引导（服务启动后要等一个间隔才跑第一轮） -->
+      <p class="empty-tip" id="auto-none" style="display: none;"></p>
+
+      <!-- 快照内容：执行时间 + 提醒列表 / 无异常说明 + 数据问题 -->
+      <p class="ai-meta" id="auto-meta" style="display: none;"></p>
+      <div class="monitor-list" id="auto-alerts" style="display: none;"></div>
+      <p class="empty-tip monitor-all-clear" id="auto-clear" style="display: none;"></p>
+      <p class="empty-tip monitor-issues" id="auto-issues" style="display: none;"></p>
+    </section>
+
+    <!-- ============ 收益趋势（历史模拟收益，单只持仓回放） ============ -->
+    <section class="panel" id="trend-panel">
+      <div class="panel-head">
+        <h2>收益趋势</h2>
+        <select id="trend-select" class="text-input select-inline" style="display: none;"></select>
+      </div>
+      <p class="panel-tip">当前持仓历史模拟收益（按当前份额回放历史净值）</p>
+      <p class="empty-tip" id="trend-status" style="display: none;"></p>
+      <div id="trend-chart" class="chart-box" style="display: none;"></div>
+      <!-- 口径声明（模拟数据 ≠ 真实历史资产） -->
+      <p class="disclaimer">
+        历史模拟收益按照当前持仓份额回放历史基金净值，未考虑历史申购、赎回、分红及份额变化，
+        因此不代表真实历史账户资产。
+      </p>
+    </section>
+
+    <!-- ============ AI API 配置（Phase 9，Web 配置优先于 .env） ============ -->
+    <section class="panel" id="ai-config-panel">
+      <div class="panel-head">
+        <h2>AI API 配置</h2>
+      </div>
+      <p class="panel-tip">
+        Web 配置优先于 .env，保存后立即生效并持久化到本地数据库（重启自动恢复）；
+        API Key 加密存储，页面只显示脱敏形式，绝不会返回完整 Key
+      </p>
+
+      <!-- 加密密钥未就绪时的提示（未配置 FUND_PILOT_SECRET_KEY 无法保存） -->
+      <p class="empty-tip ai-config-warn" id="ai-config-secret-warn" style="display: none;"></p>
+
+      <div class="query-row config-grid">
+        <input type="password" id="ai-config-key" class="text-input"
+               placeholder="API Key（sk-...）" autocomplete="off" />
+        <input type="text" id="ai-config-base-url" class="text-input"
+               placeholder="Base URL，如 https://api.openai.com/v1" />
+        <input type="text" id="ai-config-model" class="text-input"
+               placeholder="模型名，如 gpt-4o-mini" />
+      </div>
+      <div class="query-row">
+        <button class="btn" id="ai-config-save-btn">保存配置</button>
+        <button class="btn btn-light" id="ai-config-test-btn">测试连接</button>
+        <button class="btn btn-light" id="ai-config-clear-btn">清除 Web 配置</button>
+      </div>
+
+      <p class="empty-tip" id="ai-config-msg" style="display: none;"></p>
+
+      <p class="disclaimer">
+        「测试连接」会向 AI 服务发送一条最小化请求（只要求回复一个词），会消耗少量 Token；
+        清除 Web 配置后自动恢复使用 .env 中的配置。
+      </p>
+    </section>
+
+    <!-- ============ AI 分析（Phase 6） ============ -->
+    <section class="panel" id="ai-panel">
+      <div class="panel-head">
+        <h2>AI 分析</h2>
+        <button class="btn" id="ai-analysis-btn">生成 AI 分析</button>
+      </div>
+      <p class="panel-tip">AI 解读后端已计算好的账户数据（总结 / 收益来源 / 风险提示），不自行计算数字</p>
+
+      <!-- 未配置 AI 时的提示 -->
+      <p class="empty-tip ai-status-tip" id="ai-status-tip" style="display: none;"></p>
+
+      <!-- 加载中 -->
+      <p class="empty-tip ai-loading" id="ai-loading" style="display: none;">
+        AI 正在分析账户数据，请稍候（通常需要 10~30 秒）...
+      </p>
+
+      <!-- 分析结果 -->
+      <div id="ai-result" style="display: none;">
+        <p class="ai-meta" id="ai-meta"></p>
+        <div class="ai-section">
+          <h4>今日持仓总结</h4>
+          <p class="ai-section-body" id="ai-today-summary"></p>
+        </div>
+        <div class="ai-section">
+          <h4>收益来源</h4>
+          <p class="ai-section-body" id="ai-profit-sources"></p>
+        </div>
+        <div class="ai-section" id="ai-risk-section">
+          <h4>风险提示</h4>
+          <ul class="ai-risk-list" id="ai-risk-list"></ul>
+        </div>
+      </div>
+
+      <!-- 错误提示（面板内展示，不用 toast 以便保留较长的错误说明） -->
+      <p class="empty-tip ai-error" id="ai-error" style="display: none;"></p>
+
+      <!-- 免责声明（固定展示，与 AI 内容同时可见） -->
+      <p class="disclaimer">
+        AI 分析仅供参考，不构成投资建议；系统不会进行任何自动交易操作，
+        所有投资决策由用户自行做出。
+      </p>
+    </section>
+
+    <!-- ============ AI 每日报告（Phase 8，每天自动生成一份） ============ -->
+    <section class="panel" id="report-panel">
+      <div class="panel-head">
+        <h2>AI 每日报告</h2>
+      </div>
+      <p class="panel-tip">每天由后台任务自动生成一份（当天已有报告则不再重复生成，复用 AI 分析逻辑）</p>
+
+      <p class="empty-tip" id="report-loading" style="display: none;">正在加载最近报告...</p>
+      <p class="empty-tip" id="report-none" style="display: none;"></p>
+
+      <!-- 报告内容（与 AI 分析相同的三块结构，纯文本渲染） -->
+      <div id="report-result" style="display: none;">
+        <p class="ai-meta" id="report-meta"></p>
+        <div class="ai-section">
+          <h4>今日持仓总结</h4>
+          <p class="ai-section-body" id="report-summary"></p>
+        </div>
+        <div class="ai-section">
+          <h4>收益来源</h4>
+          <p class="ai-section-body" id="report-sources"></p>
+        </div>
+        <div class="ai-section" id="report-risk-section">
+          <h4>风险提示</h4>
+          <ul class="ai-risk-list" id="report-risk-list"></ul>
+        </div>
+      </div>
+
+      <!-- 免责声明（来自后端保存的固定文案，随报告一起展示） -->
+      <p class="disclaimer" id="report-disclaimer">
+        AI 每日报告仅供参考，不构成投资建议；系统不会进行任何自动交易操作，
+        所有投资决策由用户自行做出。
+      </p>
+    </section>
+
+    <!-- ============ 我的持仓（表格） ============ -->
+    <section class="panel" id="holdings-panel">
+      <div class="panel-head">
+        <h2>我的持仓</h2>
+        <button class="btn" id="open-add-modal-btn">+ 添加持仓</button>
+      </div>
+
+      <!-- 桌面端表格（手机端由 CSS 转为卡片式） -->
+      <table class="holdings-table" id="holdings-table">
+        <thead>
+          <tr>
+            <th>基金</th>
+            <th>持有份额</th>
+            <th>成本价</th>
+            <th>最新净值</th>
+            <th>当前市值</th>
+            <th>累计收益</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="holdings-tbody"></tbody>
+      </table>
+      <p class="empty-tip" id="holdings-empty" style="display: none;"></p>
+      <p class="empty-tip" id="holdings-status" style="display: none;"></p>
+    </section>
+
+    <!-- ============ 基金历史表现 ============ -->
+    <section class="panel" id="perf-panel">
+      <div class="panel-head">
+        <h2>基金历史表现</h2>
+        <select id="perf-holding" class="text-input select-inline" style="display: none;"></select>
+      </div>
+      <div class="query-row">
+        <input type="text" id="perf-code" class="text-input"
+               placeholder="或输入基金代码，如 000001" maxlength="6" />
+        <!-- 区间按钮组：7 / 30 / 90 / 180 天 -->
+        <div class="period-group" id="perf-period-group">
+          <button class="btn btn-light period-btn" data-period="7">7天</button>
+          <button class="btn btn-light period-btn active" data-period="30">30天</button>
+          <button class="btn btn-light period-btn" data-period="90">90天</button>
+          <button class="btn btn-light period-btn" data-period="180">180天</button>
+        </div>
+      </div>
+
+      <!-- 分析结果：指标 + 净值走势图 -->
+      <div id="perf-result" style="display: none;">
+        <p class="detail-name" id="perf-name"></p>
+        <div class="detail-grid">
+          <div>
+            <p class="detail-label">区间收益率</p>
+            <p class="detail-value" id="perf-return">--</p>
+          </div>
+          <div>
+            <p class="detail-label">最大回撤</p>
+            <p class="detail-value" id="perf-drawdown">--</p>
+          </div>
+          <div>
+            <p class="detail-label">起始净值</p>
+            <p class="detail-value" id="perf-start-nav">--</p>
+          </div>
+          <div>
+            <p class="detail-label">最新净值</p>
+            <p class="detail-value" id="perf-end-nav">--</p>
+          </div>
+        </div>
+        <div id="nav-chart" class="chart-box"></div>
+        <p class="panel-tip">以上为基金净值本身的历史表现，不代表任何账户的真实收益。</p>
+      </div>
+      <p class="empty-tip" id="perf-status" style="display: none;"></p>
+    </section>
+
+    <!-- ============ 基金查询（深入查看单只基金） ============ -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2>基金查询</h2>
+      </div>
+
+      <div class="query-row">
+        <input type="text" id="fund-code-input" class="text-input"
+               placeholder="输入基金代码，如 000001" maxlength="6" />
+        <button id="query-btn" class="btn btn-light">查询基金</button>
+      </div>
+
+      <div id="fund-detail" style="display: none;">
+        <p class="empty-tip" id="detail-status" style="display: none;"></p>
+        <div id="detail-content" style="display: none;">
+          <p class="detail-name" id="detail-name"></p>
+          <p class="detail-meta" id="detail-type"></p>
+          <div class="detail-grid">
+            <div>
+              <p class="detail-label">最新已确认净值（<span id="detail-nav-date"></span>）</p>
+              <p class="detail-value" id="detail-nav"></p>
+            </div>
+            <div>
+              <p class="detail-label">日涨跌幅</p>
+              <p class="detail-value" id="detail-change">--</p>
+            </div>
+          </div>
+          <p class="estimate-tip" id="estimate-tip" style="display: none;">
+            实时估值暂不可用（数据源失效），以上为最新已确认净值
+          </p>
+          <button id="history-btn" class="btn btn-light">查看历史净值</button>
+        </div>
+      </div>
+
+      <div id="history-box" style="display: none;">
+        <h3>历史净值</h3>
+        <table class="nav-table" id="history-table">
+          <thead>
+            <tr><th>日期</th><th>单位净值</th><th>累计净值</th><th>日涨幅</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="query-row" style="margin-top: 16px;">
+        <input type="text" id="search-input" class="text-input"
+               placeholder="搜索基金名称/代码，如 半导体" />
+        <button id="search-btn" class="btn btn-light">搜索</button>
+      </div>
+      <ul class="fund-list" id="search-results"></ul>
+      <p class="empty-tip" id="search-tip" style="display: none;"></p>
+    </section>
+
+    <!-- ============ 底部 ============ -->
+    <footer class="footer">
+      <p id="api-status">检查后端连接...</p>
+      <p class="disclaimer">
+        以上内容基于历史数据及模型分析，仅用于投资决策辅助，不代表未来收益，不构成投资建议。
+        基金投资有风险，过往表现不代表未来表现。系统不会自动进行任何交易。
+        本项目仅用于个人学习与数据分析。
+      </p>
+    </footer>
+  </div>
+
+  <!-- ============ 添加 / 编辑持仓 Modal ============ -->
+  <div class="modal-mask" id="holding-modal" style="display: none;">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="modal-title">添加持仓</h3>
+        <button type="button" class="modal-close" id="modal-close-btn">&times;</button>
+      </div>
+      <form id="holding-form">
+        <div class="form-row">
+          <label>基金代码</label>
+          <input type="text" id="holding-code" class="text-input"
+                 placeholder="如 000001" maxlength="6" />
+          <span class="form-fund-name" id="holding-fund-name"></span>
+        </div>
+        <div class="form-row">
+          <label>持有份额</label>
+          <input type="number" id="holding-shares" class="text-input"
+                 placeholder="如 3000" step="0.0001" min="0" />
+        </div>
+        <div class="form-row">
+          <label>成本价格</label>
+          <input type="number" id="holding-cost" class="text-input"
+                 placeholder="如 1.2000" step="0.0001" min="0" />
+        </div>
+        <p class="form-tip" id="modal-tip">
+          基金名称会根据代码自动获取；同一基金只能有一条持仓记录
+        </p>
+        <div class="form-actions">
+          <button type="button" class="btn btn-light" id="holding-cancel-btn">取消</button>
+          <button type="submit" class="btn" id="holding-submit-btn">添加</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ 删除确认 Modal ============ -->
+  <div class="modal-mask" id="confirm-modal" style="display: none;">
+    <div class="modal modal-sm">
+      <p class="confirm-text" id="confirm-text">确定删除吗？</p>
+      <div class="form-actions confirm-actions">
+        <button type="button" class="btn btn-light" id="confirm-cancel-btn">取消</button>
+        <button type="button" class="btn btn-danger" id="confirm-ok-btn">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 轻提示容器（成功 / 失败提示，自动消失） -->
+  <div id="toast-box"></div>
+
+  <!-- 脚本按依赖顺序加载：API 封装 → 图表 → 业务逻辑 → 入口 -->
+  <script src="/js/api.js"></script>
+  <script src="/js/charts.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

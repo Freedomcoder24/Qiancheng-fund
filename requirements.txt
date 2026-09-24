@@ -1,0 +1,29 @@
+# ============================================
+# 钱程似锦（Qiancheng）依赖清单
+# 安装：pip install -r requirements.txt
+# ============================================
+
+# Web 框架
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+
+# 数据校验 / 数据模型（FastAPI 依赖，显式列出方便理解）
+pydantic>=2.7.0
+
+# HTTP 客户端（Phase 2 请求基金数据 API 时使用）
+httpx>=0.27.0
+
+# OpenAI SDK（Phase 6 接入 GPT 分析时使用）
+openai>=1.40.0
+
+# API Key 加密存储（Phase 9：Fernet 对称加密 Web 配置中的 Key）
+cryptography>=42.0.0
+
+# 读取 .env 环境变量文件
+python-dotenv>=1.0.1
+
+# ORM / 数据库（Phase 3 引入，SQLite；后续可平滑迁移 MySQL）
+SQLAlchemy>=2.0.0
+
+# 测试框架
+pytest>=8.0.0

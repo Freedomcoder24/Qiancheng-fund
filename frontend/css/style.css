@@ -1,0 +1,930 @@
+/* ============ 全局 ============ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #f5f6f8;
+  color: #222;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+/* ============ 顶部导航（Phase 5） ============ */
+.topbar {
+  background: #1e2740; /* 深色顶栏，金融数据终端风格（不用渐变） */
+  color: #fff;
+}
+
+.topbar-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.brand h1 {
+  font-size: 20px;
+  letter-spacing: 0.5px;
+}
+
+.brand-sub {
+  font-size: 12px;
+  color: #9aa5c0;
+  margin-top: 2px;
+  letter-spacing: 1px;
+}
+
+.topbar-meta {
+  font-size: 13px;
+  color: #c6cede;
+}
+
+/* ============ 涨跌颜色（国内习惯：涨红跌绿，全站统一） ============ */
+.up { color: #e03131; }
+.down { color: #2f9e44; }
+
+/* ============ 账户总览卡片 ============ */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.card-label {
+  color: #888;
+  font-size: 13px;
+}
+
+.card-value {
+  font-size: 21px;
+  font-weight: 700;
+  margin-top: 8px;
+  font-variant-numeric: tabular-nums; /* 数字等宽，避免跳动 */
+}
+
+.card-sub {
+  font-size: 12px;
+  margin-top: 4px;
+  color: #999;
+}
+
+/* ============ 通用面板 ============ */
+.panel {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  margin-bottom: 16px;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+/* 面板头右侧按钮组（Phase 9：操作按钮 + 折叠按钮并排） */
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 折叠态：隐藏面板头以外的全部内容（Phase 9 折叠按钮）
+   !important 用于覆盖 JS 设置的内联 display:block（如监控卡片列表） */
+.panel.collapsed > *:not(.panel-head) {
+  display: none !important;
+}
+
+/* AI API 配置面板：三项输入一行排布（窄屏自动换行） */
+.config-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1.6fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel h2 {
+  font-size: 17px;
+}
+
+.panel h3 { font-size: 15px; margin-top: 12px; }
+
+/* 面板里的辅助说明文字 */
+.panel-tip {
+  color: #999;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+/* 面板头部右侧的下拉框（选基金用） */
+.select-inline {
+  flex: 0 0 220px;
+  padding: 8px 10px;
+}
+
+/* ============ 空状态引导（无持仓时） ============ */
+.empty-hero {
+  text-align: center;
+  padding: 40px 18px;
+}
+
+.empty-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #444;
+}
+
+.empty-desc {
+  color: #999;
+  font-size: 14px;
+  margin: 8px 0 16px;
+}
+
+.empty-tip {
+  color: #999;
+  font-size: 14px;
+  padding: 12px 0;
+  text-align: center;
+}
+
+/* ============ 收益趋势 ============ */
+#trend-chart {
+  margin-top: 8px;
+}
+
+/* ============ 持仓表格 ============ */
+.holdings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.holdings-table th,
+.holdings-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #f0f0f0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* 基金列（名称 + 代码）左对齐 */
+.holdings-table th:first-child,
+.holdings-table td:first-child {
+  text-align: left;
+}
+
+.holdings-table th {
+  color: #999;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.holdings-table tbody tr:hover {
+  background: #fafbfd;
+}
+
+.holdings-table .t-name {
+  font-weight: 600;
+}
+
+.holdings-table .t-code {
+  color: #999;
+  font-size: 12px;
+  font-family: Consolas, monospace;
+  display: block;
+  margin-top: 2px;
+}
+
+/* 数字列使用等宽数字 */
+.holdings-table td.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.holdings-table .cell-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* 表格里收益 = 金额 + 收益率两行 */
+.holdings-table .profit-cell small {
+  display: block;
+  font-size: 12px;
+  color: inherit;
+}
+
+/* ============ 查询行 / 按钮 ============ */
+.query-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.text-input {
+  flex: 1;
+  min-width: 140px;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+}
+
+.text-input:focus {
+  border-color: #4c6ef5;
+}
+
+.btn {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #4c6ef5;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn:hover { background: #3b5bdb; }
+
+.btn-light {
+  background: #eef0f4;
+  color: #444;
+}
+
+.btn-light:hover { background: #e9ecef; }
+
+.btn-danger {
+  background: #fa5252;
+  color: #fff;
+}
+
+.btn-danger:hover { background: #f03e3e; }
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 区间按钮组（7/30/90/180 天），active 表示当前选中 */
+.period-group {
+  display: flex;
+  gap: 6px;
+}
+
+.period-btn.active {
+  background: #4c6ef5;
+  color: #fff;
+}
+
+/* ============ 基金详情 / 搜索（保留 Phase 2 能力） ============ */
+.detail-name {
+  font-size: 17px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.detail-meta {
+  color: #999;
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.detail-label {
+  color: #999;
+  font-size: 12px;
+}
+
+.detail-value {
+  font-size: 18px;
+  font-weight: 700;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.estimate-tip {
+  color: #b08800;
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+.fund-meta {
+  color: #aaa;
+  font-size: 12px;
+}
+
+/* 搜索结果可点击 */
+.search-item { cursor: pointer; }
+.search-item:hover { background: #f8f9fa; }
+
+.fund-list {
+  list-style: none;
+}
+
+.fund-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+
+.fund-item:last-child {
+  border-bottom: none;
+}
+
+.fund-name {
+  flex: 1;
+  font-weight: 600;
+}
+
+.fund-code { color: #999; }
+
+/* 历史净值表格 */
+.nav-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.nav-table th,
+.nav-table td {
+  padding: 8px;
+  border-bottom: 1px solid #f0f0f0;
+  text-align: center;
+}
+
+.nav-table th:first-child,
+.nav-table td:first-child { text-align: left; }
+
+.nav-table th {
+  color: #888;
+  font-weight: 500;
+}
+
+/* ============ 图表容器 ============ */
+/* ECharts 需要确定高度的容器才能正常渲染 */
+.chart-box {
+  height: 320px;
+  margin-top: 12px;
+}
+
+/* ============ Modal 弹窗（添加 / 编辑 / 删除确认） ============ */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 24, 40, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 100;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+}
+
+.modal-sm {
+  max-width: 340px;
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.modal-head h3 {
+  font-size: 16px;
+}
+
+.modal-close {
+  border: none;
+  background: none;
+  font-size: 22px;
+  color: #999;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-close:hover { color: #444; }
+
+/* Modal 内的表单行 */
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.form-row label {
+  width: 70px;
+  color: #666;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.form-fund-name {
+  color: #4c6ef5;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.form-actions .btn {
+  flex: 1;
+}
+
+.confirm-text {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.confirm-actions {
+  margin-top: 18px;
+}
+
+.form-tip {
+  color: #aaa;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+/* ============ 轻提示 toast ============ */
+#toast-box {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.toast {
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  animation: toast-in 0.25s ease;
+}
+
+.toast-success { background: #2f9e44; }
+.toast-error { background: #e03131; }
+.toast-info { background: #4c6ef5; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============ 底部 ============ */
+.footer {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.footer .ok { color: #2f9e44; }
+.footer .bad { color: #e03131; }
+
+.disclaimer {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #aaa;
+  line-height: 1.6;
+}
+
+/* ============ AI 分析面板（Phase 6） ============ */
+
+/* 未配置提示：黄色警示 */
+.ai-status-tip,
+.ai-config-warn {
+  color: #b08000;
+  background: #fff9db;
+  border: 1px solid #ffe58f;
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: block;
+}
+
+/* 加载中：缓慢呼吸动画，提示用户 AI 正在生成 */
+.ai-loading {
+  color: #4c6ef5;
+  animation: ai-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ai-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+/* 元信息（模型 / 时间 / 数据日期） */
+.ai-meta {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 12px;
+}
+
+/* 三个内容板块：左侧竖线标识 */
+.ai-section {
+  padding: 10px 0 10px 12px;
+  border-left: 3px solid #dbe2f0;
+  margin-bottom: 14px;
+}
+
+.ai-section h4 {
+  font-size: 14px;
+  color: #1e2740;
+  margin-bottom: 6px;
+}
+
+.ai-section-body {
+  font-size: 14px;
+  line-height: 1.8;
+  color: #333;
+  white-space: pre-wrap; /* 保留模型输出中的换行 */
+}
+
+/* 风险提示列表 */
+.ai-risk-list {
+  padding-left: 18px;
+}
+
+.ai-risk-list li {
+  font-size: 14px;
+  line-height: 1.8;
+  color: #874d00; /* 风险提示用暗橙色，区别于正文 */
+}
+
+/* 面板内错误提示（比 toast 更醒目，保留完整文案） */
+.ai-error {
+  color: #e03131;
+  background: #fff0f0;
+  border: 1px solid #ffc9c9;
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: block;
+  line-height: 1.7;
+}
+
+/* ============ 智能监控（Phase 7） ============ */
+
+/* 提醒条目：左侧竖线颜色随等级变化 */
+.monitor-item {
+  border: 1px solid #eee;
+  border-left: 4px solid #dbe2f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: #fafbfc;
+}
+
+.monitor-item.level-danger { border-left-color: #e03131; }
+.monitor-item.level-warning { border-left-color: #f08c00; }
+.monitor-item.level-info { border-left-color: #1971c2; }
+
+.monitor-item-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+/* 等级徽章：高风险红 / 注意橙 / 提示蓝 */
+.level-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 8px;
+  flex-shrink: 0;
+}
+
+.level-badge.level-danger { background: #e03131; }
+.level-badge.level-warning { background: #f08c00; }
+.level-badge.level-info { background: #1971c2; }
+.level-badge.level-neutral { background: #868e96; }
+
+/* 目标进度头部：链路文案 + 状态徽章同行 */
+.goal-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* 候选池筛选条件行（Phase 13） */
+.filter-row {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e2740;
+  flex-shrink: 0;
+}
+
+.filter-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: #444;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.filter-input {
+  width: 230px;
+}
+
+.monitor-type {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e2740;
+}
+
+.monitor-fund {
+  font-size: 13px;
+  color: #666;
+}
+
+.monitor-reason {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #333;
+}
+
+.monitor-detail {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #777;
+  margin-top: 2px;
+}
+
+/* 无异常时的整体说明（绿色对勾语义） */
+.monitor-all-clear {
+  color: #2f9e44;
+  background: #f4faf6;
+  border: 1px solid #d3f0dd;
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: block;
+}
+
+/* 数据不足 / 接口异常说明（黄色提示语义，不伪造数据） */
+.monitor-issues {
+  color: #874d00;
+  background: #fff9e6;
+  border: 1px solid #ffe58f;
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: block;
+  text-align: left;
+  line-height: 1.7;
+  font-size: 13px;
+}
+
+/* ============ 响应式 ============ */
+
+/* 平板宽度：总览卡片自动换行 */
+@media (max-width: 900px) {
+  .summary-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* 手机：卡片两列 / 表格变卡片式，禁止横向滚动 */
+@media (max-width: 640px) {
+  .summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* 持仓表格转为卡片式 */
+  .holdings-table thead {
+    display: none;
+  }
+
+  .holdings-table,
+  .holdings-table tbody,
+  .holdings-table tr,
+  .holdings-table td {
+    display: block;
+    width: 100%;
+    white-space: normal;
+  }
+
+  .holdings-table tr {
+    border: 1px solid #eee;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+
+  .holdings-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed #f2f2f2;
+    padding: 6px 0;
+    text-align: right;
+  }
+
+  .holdings-table td:last-child {
+    border-bottom: none;
+  }
+
+  /* 用 data-label 显示字段名 */
+  .holdings-table td::before {
+    content: attr(data-label);
+    color: #999;
+    font-size: 12px;
+  }
+
+  /* 基金列不需要字段名（名称本身就是标识） */
+  .holdings-table td.t-fund::before {
+    content: none;
+  }
+
+  .holdings-table .cell-actions {
+    justify-content: flex-end;
+  }
+
+  .detail-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .select-inline {
+    flex: 1 1 100%;
+  }
+}
+
+/* ============ Phase 12：投资决策辅助 ============ */
+
+/* 全局免责横幅：页面最顶部、醒目（复用 .ai-status-tip 黄色警告视觉） */
+.global-disclaimer {
+  color: #b08000;
+  background: #fff9db;
+  border: 1px solid #ffe58f;
+  border-left: 4px solid #f0c040;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+
+/* 目标收益率输入框：收窄，突出后面保存按钮 */
+.goal-rate-input {
+  width: 200px;
+}
+
+/* "目标收益 → 当前收益 → 距离目标" 一句话链路（普通用户第一眼看的结论） */
+.goal-link-text {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.7;
+  margin: 6px 0 10px;
+}
+
+/* 目标进度条 */
+.progress-track {
+  height: 14px;
+  background: #eef1f6;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: #4c6ef5;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+/* 指标卡里的小字补充（如"约还差 ¥xxx 收益"） */
+.detail-sub {
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
+}
+
+/* 目标指标网格：继承 .detail-grid 的 4 列，仅加一点上边距 */
+.goal-metrics {
+  margin-top: 4px;
+  margin-bottom: 14px;
+}
+
+/* AI 目标结论盒：与上方持仓明细分隔 */
+.goal-conclusion-box {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed #eee;
+}
+
+/* 候选池面板：筛选条件小节标题 */
+.panel-sub-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 6px;
+}
+
+/* 候选池面板：数据来源提示条（信息蓝，区别于黄色警告） */
+.ai-banner {
+  color: #1864ab;
+  background: #e7f1ff;
+  border: 1px solid #bcd8f7;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  margin-bottom: 10px;
+}
+
+/* ---- 移动端适配（沿用 640px 断点） ---- */
+@media (max-width: 640px) {
+  .goal-rate-input {
+    width: 100%;
+  }
+
+  .goal-link-text {
+    font-size: 15px;
+  }
+
+  /* Phase 13：筛选条件行手机端折行，输入框占满整行 */
+  .filter-input {
+    width: 100%;
+  }
+
+  .filter-row .btn {
+    width: 100%;
+  }
+}
