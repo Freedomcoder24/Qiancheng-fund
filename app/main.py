@@ -25,7 +25,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import ai, automation, candidate, fund, goal, monitor, portfolio
+from app.api import agent, ai, automation, candidate, fund, goal, monitor, portfolio
 from app.database.database import init_db
 from app.services import automation_service
 
@@ -53,7 +53,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="钱程似锦 Qiancheng",
     description="个人基金智能监控与分析系统（仅用于学习与数据分析，不构成投资建议）",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -72,6 +72,7 @@ app.include_router(portfolio.router)
 app.include_router(goal.router)
 app.include_router(candidate.router)
 app.include_router(ai.router)
+app.include_router(agent.router)
 app.include_router(monitor.router)
 app.include_router(automation.router)
 
@@ -79,7 +80,7 @@ app.include_router(automation.router)
 @app.get("/api/health", tags=["系统"], summary="健康检查")
 def health_check():
     """确认后端正在运行"""
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": "0.2.0"}
 
 
 # 托管前端静态页面（index.html / css / js）

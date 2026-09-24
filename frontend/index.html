@@ -257,6 +257,42 @@
       </p>
     </section>
 
+    <!-- ============ AI 助手（Phase 15/17/18：Agent 对话，多轮会话 + 流式输出） ============ -->
+    <section class="panel" id="agent-panel">
+      <div class="panel-head">
+        <h2>AI 助手</h2>
+        <div class="head-actions">
+          <button class="btn btn-light btn-sm" id="agent-new-session-btn">新建会话</button>
+          <button class="btn btn-light btn-sm" id="agent-clear-btn">清空当前会话</button>
+          <button class="btn btn-light btn-sm collapse-btn" data-target="agent-panel">折叠</button>
+        </div>
+      </div>
+      <p class="panel-tip">
+        用一句话提出基金分析需求，AI 助手会自主判断需要哪些数据、查询后端精确计算的结果后回答
+        （只解读数据与风险，不构成投资建议，也不会给出任何交易指令）
+      </p>
+
+      <!-- 未配置 AI 时的提示（与 AI 分析面板同款黄色警示） -->
+      <p class="empty-tip ai-status-tip" id="agent-status-tip" style="display: none;"></p>
+
+      <!-- 对话消息区 -->
+      <div class="agent-chat">
+        <div class="agent-messages" id="agent-messages"></div>
+      </div>
+
+      <!-- 输入区：Enter 发送 / Shift+Enter 换行 -->
+      <div class="agent-input-row">
+        <textarea id="agent-input" class="agent-input" rows="1"
+                  placeholder="例如：帮我分析一下我现在的持仓（Enter 发送，Shift+Enter 换行）"></textarea>
+        <button class="btn agent-send-btn" id="agent-send-btn">发送</button>
+      </div>
+
+      <p class="panel-tip agent-limit-tip">
+        多轮对话：同一会话内 AI 能理解"它 / 这只基金"等指代（会话保留最近 4 轮，仅存内存，
+        服务重启或闲置 30 分钟后自动失效）。回答基于最新已确认净值，非实时数据。
+      </p>
+    </section>
+
     <!-- ============ 智能监控 → 风险详情（Phase 12 改名并默认折叠弱化） ============ -->
     <section class="panel collapsed" id="monitor-panel">
       <div class="panel-head">
@@ -625,10 +661,11 @@
   <!-- 轻提示容器（成功 / 失败提示，自动消失） -->
   <div id="toast-box"></div>
 
-  <!-- 脚本按依赖顺序加载：API 封装 → 图表 → 业务逻辑 → 入口 -->
+  <!-- 脚本按依赖顺序加载：API 封装 → 图表 → 业务逻辑 → Agent 对话 → 入口 -->
   <script src="/js/api.js"></script>
   <script src="/js/charts.js"></script>
   <script src="/js/dashboard.js"></script>
+  <script src="/js/agent-chat.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

@@ -928,3 +928,266 @@ body {
     width: 100%;
   }
 }
+
+/* ============ Phase 17：AI 助手对话面板 ============ */
+
+/* 对话窗口：内嵌聊天区域（不做整页应用，保持单页面板风格） */
+.agent-chat {
+  border: 1px solid #e8ebf2;
+  border-radius: 12px;
+  background: #fafbfc;
+  overflow: hidden;
+}
+
+.agent-messages {
+  max-height: 420px;
+  min-height: 220px;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 消息气泡：用户右侧蓝底 / AI 左侧白底，底部收窄一角 */
+.agent-msg {
+  max-width: 86%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.8;
+  word-break: break-word;
+}
+
+.agent-msg-user {
+  align-self: flex-end;
+  background: #4c6ef5;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+  white-space: pre-wrap;
+}
+
+.agent-msg-ai {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid #e8ebf2;
+  border-bottom-left-radius: 4px;
+}
+
+/* 欢迎语弱化展示 */
+.agent-msg-welcome {
+  color: #666;
+  background: #f4f6fa;
+  border-color: #e8ebf2;
+  white-space: pre-wrap;
+}
+
+/* 加载中气泡：阶段文字呼吸 + 计时小字 + 三点跳动 */
+.agent-msg-loading {
+  color: #4c6ef5;
+}
+
+.agent-loading-text {
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
+}
+
+.agent-typing {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.agent-typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4c6ef5;
+  animation: agent-dot 1.2s ease-in-out infinite;
+}
+
+.agent-typing span:nth-child(2) { animation-delay: 0.15s; }
+.agent-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes agent-dot {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+
+/* 工作过程：轻量工具链标签（中文描述，不暴露 JSON） */
+.agent-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.agent-tools-label {
+  font-size: 12px;
+  color: #999;
+  flex-shrink: 0;
+}
+
+.agent-tools-arrow {
+  font-size: 12px;
+  color: #b9c2d8;
+}
+
+.agent-tool-chip {
+  font-size: 12px;
+  color: #1864ab;
+  background: #e7f1ff;
+  border: 1px solid #bcd8f7;
+  border-radius: 999px;
+  padding: 1px 10px;
+  white-space: nowrap;
+}
+
+/* Markdown 正文（回答由后端生成，前端先转义再渲染有限语法） */
+.agent-md p {
+  margin: 4px 0;
+}
+
+.agent-md p:first-child { margin-top: 0; }
+.agent-md p:last-child { margin-bottom: 0; }
+
+.agent-md-h {
+  font-size: 14px;
+  color: #1e2740;
+  margin: 10px 0 4px;
+}
+
+.agent-md-list {
+  padding-left: 20px;
+  margin: 4px 0;
+}
+
+.agent-md-list li {
+  margin: 2px 0;
+}
+
+.agent-md code,
+.agent-pre code {
+  font-family: Consolas, Monaco, monospace;
+  font-size: 13px;
+  background: #f1f3f8;
+  border: 1px solid #e3e7f0;
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.agent-pre {
+  background: #f1f3f8;
+  border: 1px solid #e3e7f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  margin: 6px 0;
+}
+
+.agent-pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  white-space: pre;
+}
+
+/* 元信息与回答内免责声明 */
+.agent-msg-meta {
+  font-size: 11px;
+  color: #b3b3b3;
+  margin-top: 8px;
+}
+
+.agent-msg-disclaimer {
+  font-size: 11px;
+  color: #b08000;
+  margin-top: 4px;
+  line-height: 1.6;
+}
+
+/* 会话提示条：清空屏幕 / 新建会话后的轻说明（居中弱化） */
+.agent-session-note {
+  align-self: center;
+  font-size: 12px;
+  color: #999;
+  background: #f4f6fa;
+  border: 1px dashed #dde2ec;
+  border-radius: 999px;
+  padding: 4px 14px;
+}
+
+/* 错误气泡：复用面板级错误视觉（含 502 红线拒绝信息） */
+.agent-msg-error {
+  align-self: flex-start;
+  max-width: 92%;
+  color: #e03131;
+  background: #fff0f0;
+  border: 1px solid #ffc9c9;
+  border-radius: 12px;
+  border-bottom-left-radius: 4px;
+  line-height: 1.7;
+}
+
+/* 输入区 */
+.agent-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin-top: 12px;
+}
+
+.agent-input {
+  flex: 1;
+  resize: none;
+  border: 1px solid #dde2ec;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.6;
+  min-height: 44px;
+  max-height: 120px;
+  background: #fff;
+}
+
+.agent-input:focus {
+  outline: none;
+  border-color: #4c6ef5;
+  box-shadow: 0 0 0 3px rgba(76, 110, 245, 0.12);
+}
+
+.agent-send-btn {
+  flex-shrink: 0;
+  padding-left: 22px;
+  padding-right: 22px;
+}
+
+/* 输入区下方限制说明（会话记忆 / 非实时口径，如实展示） */
+.agent-limit-tip {
+  margin-top: 8px;
+}
+
+/* 手机端：气泡加宽、输入区不换行挤压 */
+@media (max-width: 640px) {
+  .agent-messages {
+    max-height: 340px;
+    min-height: 180px;
+    padding: 12px;
+  }
+
+  .agent-msg {
+    max-width: 94%;
+  }
+
+  .agent-input-row {
+    flex-wrap: nowrap;
+  }
+
+  .agent-send-btn {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}

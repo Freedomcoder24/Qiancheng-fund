@@ -128,4 +128,6 @@ const api = {
   // AI 解释候选基金为什么入选（不是推荐）
   runCandidateAnalysis: () =>
     request('/api/ai/candidate-analysis', { method: 'POST' }),
+  // Phase 18 起 AI 助手对话走 SSE 流式（agent-chat.js 直连 /api/agent/chat/stream），
+  // 此处不再保留一次性对话封装
 };

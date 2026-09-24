@@ -138,6 +138,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---- 候选池筛选条件（Phase 13：保存） ----
   document.getElementById('filter-save-btn').addEventListener('click', saveCandidateFilter);
 
+  // ---- AI 助手对话面板（Phase 15/17：Agent 对话，后端 Tool Calling） ----
+  initAgentChat();
+
   // ---- 面板折叠按钮（智能监控 / 最近一次自动检查）：切换正文显隐 ----
   document.querySelectorAll('.collapse-btn').forEach((btn) => {
     btn.addEventListener('click', () => {

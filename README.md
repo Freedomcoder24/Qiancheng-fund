@@ -1,10 +1,12 @@
 # 📊 钱程似锦（Qiancheng）
 
-> 基于 Python + FastAPI + 基金数据 API + GPT 的个人基金智能监控与分析系统
+> 基于 Python + FastAPI + 基金数据 API + GPT 的个人基金智能监控与分析系统（内置 Tool Calling 智能体）
 
 钱程似锦（Qiancheng） 是一个面向个人投资者的基金数据监控与 AI 分析项目。
 
-项目通过基金数据接口获取基金净值、涨跌幅等公开市场数据，结合用户自行录入的持仓信息，自动计算账户收益、仓位变化和风险指标，并通过 OpenAI 兼容 API 接入 GPT，对账户数据进行分析和生成日报。
+项目通过基金数据接口获取基金净值、涨跌幅等公开市场数据，结合用户自行录入的持仓信息，自动计算账户收益、仓位变化和风险指标；并通过 OpenAI 兼容 API 接入 GPT，对账户数据进行分析和生成日报。
+
+**v0.2.0 起内置 AI 助手（Agent）**：基于 OpenAI Tool Calling 的智能体，能自主判断需要哪些数据、调用后端查询工具、基于精确计算结果回答用户的自然语言提问，支持多轮对话与 SSE 流式输出。
 
 > ⚠️ **免责声明**
 >
@@ -17,13 +19,16 @@
 
 ## 🛠 核心技术亮点
 
+* **Agent + Tool Calling**：AI 助手基于 OpenAI Tool Calling 自主规划数据查询——模型决定调用哪些只读工具（大盘行情 / 基金信息 / 历史净值 / 区间表现 / 持仓 / 账户汇总 / 持仓回放，共 7 个），工具直接复用后端 service 层（Decimal 计算与缓存自动生效），循环上限 6 轮防失控
+* **多轮会话 + SSE 流式**：进程内轻量会话（每会话保留最近 4 轮问答，TTL 30 分钟），模型能理解"它 / 这只基金"等指代；对话经 SSE（`text/event-stream`）推送，工具执行状态实时可见、最终回复分块流出
+* **红线安全优先**：最终回复先完整生成并通过预测性 / 推荐性表述检测（`FORBIDDEN_PREDICTIVE_PHRASES`），之后才允许流出——不为流式效果降低安全性；AI 全程禁止交易指令、禁止自行计算数字
 * **精确金融计算**：所有金额 / 收益 / 市值计算使用 Python `Decimal` 并统一 `ROUND_HALF_UP` 舍入，杜绝浮点误差；前端不重算任何数字，全部以后端返回为准
 * **异步架构**：FastAPI + httpx.AsyncClient 异步获取基金数据，数据源自动分页、失败重试与友好降级（数据源故障不伪造数据）
 * **AI 安全接入**：兼容 OpenAI 接口协议；API Key 使用 Fernet 对称加密（密钥由本机 `FUND_PILOT_SECRET_KEY` 派生）后落库，页面 / 日志 / API 响应全程只出现脱敏 Key
 * **自动化后台任务**：基于 asyncio 协程 + FastAPI lifespan 的定时任务（无需额外调度框架），自动执行智能监控并生成 AI 每日报告，异常隔离、单次失败不中断后续周期
 * **固定规则风控**：四类检查规则（涨跌幅异常 / 持仓集中度 / 最大回撤 / 异常波动）全部显式写在代码中，按三级分级输出，AI 不参与风控计算
-* **纯文本渲染防注入**：AI 输出与监控内容在前端全部以 `textContent` 渲染，杜绝 HTML 注入
-* **完整测试**：164 项 pytest 覆盖（数据计算 / 基金 API / AI 分析与红线 / 目标状态 / 候选池筛选 / 监控 / 自动化 / 配置安全）
+* **前端渲染防注入**：AI 输出先整体 HTML 转义再做有限 Markdown 转换（加粗 / 行内代码 / 代码块 / 列表），其余内容一律 `textContent` 渲染
+* **完整测试**：208 项 pytest 覆盖（数据计算 / 基金 API / AI 分析与红线 / Agent 循环与会话 / SSE 流式 / 大盘行情 / 目标状态 / 候选池筛选 / 监控 / 自动化 / 配置安全），并有真实模型端到端验证脚本
 
 ---
 
@@ -446,6 +451,78 @@ Dashboard 新增「最近一次自动检查」与「AI 每日报告」两个只�
 
 ---
 
+# 🤖 10. AI 助手（Agent + Tool Calling，Phase 15-18）
+
+Dashboard 内置「AI 助手」对话面板：用户用自然语言提出基金分析需求，
+Agent 自主判断需要哪些数据、调用对应工具查询后端精确计算的结果，然后综合回答。
+
+## Agent 循环（Tool Calling 流程）
+
+```text
+用户提问（如"帮我分析一下现在的持仓"）
+   ↓
+Agent 判断需要哪些数据
+   ↓ 调用工具（可多轮、可一次多个）
+后端 Service 执行（Decimal 精确计算 + 数据源缓存）
+   ↓ 结果以 role="tool" 回填上下文
+Agent 继续判断：数据够不够
+   ↓
+生成最终回复 → 红线检测（预测性/推荐性表述）
+   ↓ 通过
+SSE 分块推送给前端（含工具调用链徽章）
+```
+
+* 循环上限 6 轮，超限返回 502（防模型反复调工具失控）
+* 工具执行器永不抛异常：参数非法 / 基金不存在 / 数据源不可用都转为
+  `{"error": ...}` 回给模型自行纠正，单个工具失败不打断对话
+* 参数在服务端二次校验（JSON Schema 只是给模型的提示）
+
+## 7 个只读工具（全部复用现有 Service，零重复实现）
+
+| 工具 | 数据 | 后端实现 |
+|---|---|---|
+| get_market_index | 大盘行情（上证 / 深证成指 / 创业板指：点位 / 涨跌 / 更新时间） | market_service.get_market_indexes（腾讯公开行情接口） |
+| get_fund_detail | 基金名称 / 类型 / 最新净值 | fund_service.get_fund_detail |
+| get_fund_history | 历史净值（分页，最新在前） | fund_service.get_fund_history |
+| get_fund_performance | 区间收益 / 最大回撤（7/30/90/180 天） | fund_service.get_fund_performance |
+| get_holdings | 全部持仓（市值 / 收益 / 占比数据） | portfolio_service.list_holdings |
+| get_portfolio_summary | 账户总投入 / 市值 / 累计收益 | portfolio_service.get_summary |
+| get_holding_history | 持仓历史模拟市值回放 | portfolio_service.get_holding_simulated_history |
+
+全部为只读查询，无任何交易操作；数字全部来自后端 Decimal 计算结果，
+prompt 明确禁止模型自行计算或编造。
+
+## 多轮会话机制（Phase 18）
+
+* 轻量进程内存会话（`agent_session`）：每会话只保留**最近 4 轮问答**
+  （8 条 user/assistant 消息），工具中间产物不入历史，控制上下文长度
+* TTL 30 分钟过期、会话总数上限 200；服务重启即清空（页面有明示）
+* 客户端首次请求获得 `session_id`，之后回传即可延续上下文——
+  实测模型能正确理解"它 / 这只基金"等指代（真实 E2E 中第二轮仅说
+  "它最近90天表现怎么样？"，模型自主调用 `get_fund_performance(000001, 90)`）
+* 只有整轮成功（含红线检测通过）的问答才写入历史
+
+## SSE 流式机制（Phase 18）
+
+* 接口：`POST /api/agent/chat/stream`（`text/event-stream`）
+* 事件：`session`（会话 id）→ `status`（思考中 / 正在查询某工具 / 生成回复中）
+  → `tool_done` → `delta`（回复增量）→ `done`（完整结果）｜失败时 `error`
+* 工具执行阶段状态为**真实实时推送**；最终回复**先完整生成并通过红线检测、
+  之后才分块流出**——不存在"先流出违规文本再撤销"，安全性与流式体验兼得
+* 前端用 `fetch` + `ReadableStream` 消费（POST 请求不适用 EventSource），
+  增量文本经"先转义再渲染"的安全 Markdown 管线逐步上屏
+
+## 安全与红线策略（长期约束）
+
+* **禁交易指令**：prompt 层 + 解析层双重约束，AI 不输出买入 / 卖出 / 加仓等任何指令
+* **禁预测性表述**：`FORBIDDEN_PREDICTIVE_PHRASES`（"有望上涨 / 盈利概率 / 值得买"等）
+  在解析层强制检查，命中即整次拒绝（HTTP 502 / 流式 `error` 事件），不做片段丢弃
+* **数字不可编造**：所有数字只能来自工具返回的后端计算结果
+* **注入防护**：前端先 HTML 转义再做有限 Markdown 转换，其余一律 `textContent`
+* 接口：`POST /api/agent/chat`（一次性 JSON）、`POST /api/agent/chat/stream`（SSE）
+
+---
+
 # 🏗️ 项目技术栈
 
 ## 后端
@@ -516,46 +593,58 @@ Model
 
 # 📁 项目结构
 
-第一阶段计划采用：
-
 ```text
 Qiancheng/
 │
 ├── app/
-│   ├── main.py
+│   ├── main.py                    # FastAPI 入口（lifespan 自动化任务 + 路由注册）
 │   │
-│   ├── api/
-│   │   ├── fund.py
-│   │   ├── portfolio.py
-│   │   └── ai.py
+│   ├── agent/                     # Agent 工具层（Phase 15）
+│   │   └── tools.py               # 6 个只读 Tool 的 Schema 定义与执行器
 │   │
-│   ├── services/
-│   │   ├── fund_service.py
-│   │   ├── portfolio_service.py
-│   │   └── ai_service.py
+│   ├── api/                       # 路由层（参数校验 + 异常→HTTP 状态码）
+│   │   ├── fund.py                # 基金查询 / 历史 / 表现 / 候选池
+│   │   ├── portfolio.py           # 持仓 CRUD / 账户汇总 / 模拟回放
+│   │   ├── goal.py                # 投资目标与进度
+│   │   ├── candidate.py           # 候选池筛选条件
+│   │   ├── ai.py                  # AI 分析 / 目标结论 / 候选池解读 / Web 配置
+│   │   ├── agent.py               # AI 助手对话（JSON + SSE 流式）
+│   │   ├── monitor.py             # 风险检查
+│   │   └── automation.py          # 自动检查 / AI 日报
 │   │
-│   ├── models/
-│   │   ├── fund.py
-│   │   └── portfolio.py
+│   ├── services/                  # 业务层
+│   │   ├── fund_service.py        # 基金数据（缓存 + 区间表现计算）
+│   │   ├── portfolio_service.py   # 持仓 / 收益计算（Decimal）
+│   │   ├── fund_data_source.py    # 东方财富公开数据源（自动翻页 / 异常转换）
+│   │   ├── ai_service.py          # 一次性 AI 分析（分析 / 目标结论 / 候选池解读）
+│   │   ├── agent_service.py       # Agent 循环（事件生成器，非流式为其包装）
+│   │   ├── agent_session.py       # Agent 多轮会话（内存，TTL + 条数上限）
+│   │   ├── goal_service.py        # 目标进度与 5 状态分类
+│   │   ├── candidate_service.py   # 候选池筛选管线
+│   │   ├── monitor_service.py     # 固定规则风险检查
+│   │   ├── market_service.py      # 大盘行情（腾讯公开行情接口，Phase 20）
+│   │   ├── automation_service.py  # 后台定时任务
+│   │   └── web_config_service.py  # Web AI 配置（Fernet 加密）
 │   │
-│   ├── database/
-│   │   └── database.py
-│   │
-│   └── utils/
-│       └── calculator.py
+│   ├── models/                    # Pydantic 模型（fund / portfolio / goal / agent / ...）
+│   ├── database/                  # SQLAlchemy + SQLite
+│   └── utils/calculator.py        # Decimal 金融计算（全项目唯一数值入口）
 │
 ├── frontend/
 │   ├── index.html
-│   ├── css/
-│   │   └── style.css
-│   │
+│   ├── css/style.css
 │   └── js/
-│       └── app.js
+│       ├── api.js                 # fetch 封装 + 统一错误文案
+│       ├── charts.js              # ECharts 渲染
+│       ├── dashboard.js           # 业务逻辑
+│       ├── agent-chat.js          # AI 助手对话（SSE 消费 + 安全 Markdown）
+│       └── app.js                 # 全局工具函数 + 事件绑定
 │
-├── data/
-│
-├── tests/
-│
+├── data/                          # SQLite 数据文件（不入库 git）
+├── docs/
+│   ├── screenshots/               # 项目截图（脱敏演示数据）
+│   └── dev-notes/                 # 历史开发笔记
+├── tests/                         # pytest（208 项）+ manual 真实网络验证脚本
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
@@ -829,6 +918,79 @@ OpenAI Compatible API
 
 ---
 
+## Phase 14：v1.0 最终封版 ✅ 已完成（2026-09-24）
+
+* 全仓库名称 / 安全 / 截图 / 文档终检；git init 完成，发布前检查全过
+* README 更新（投资目标 / 基金关注章节 + 7 张脱敏截图 + 核心技术亮点）
+
+---
+
+## Phase 15：Agent + Tool Calling 基础架构 ✅ 已完成（2026-09-24）
+
+* AI 助手 Agent 循环：模型自主决定调用哪些工具、循环执行直至给出最终回复
+  （上限 6 轮），`POST /api/agent/chat`
+* 6 个只读 Tool（`app/agent/tools.py`）全部复用现有 Service，零业务逻辑重复
+* 工具执行器永不抛异常：参数非法 / 基金不存在 / 数据源不可用转 error 回给模型自纠
+* 红线：最终回复命中预测性 / 推荐性表述 → 整次拒绝（502），不做片段丢弃
+* pytest 179 passed（+15 Agent 用例）
+
+---
+
+## Phase 16：Agent 实战验收与稳定性增强 ✅ 已完成（2026-09-24）
+
+* 真实 gpt-5.6 端到端 6 场景验收全过（无工具 / 单工具 / 多工具链 / 参数自纠 /
+  工具异常转告 / 诱导预测干净拒绝），数据库全程只读
+* 11 个边界用例（红线位置钉死 / 空回复 / 超长消息 / 未知工具 / 参数异常 /
+  执行器异常 / 分页边界 / 数据源故障转告 / 重复调用由轮数上限兜底）
+* 修复：区间常量统一为 AnalysisPeriod 枚举单一来源；pytest 190 passed
+
+---
+
+## Phase 17：前端 AI 助手对话面板 ✅ 已完成（2026-09-24）
+
+* Dashboard「AI 助手」面板：消息气泡 / Enter 发送 / 安全 Markdown 渲染 /
+  工具调用链中文徽章 / 加载计时 / 错误与免责声明展示 / 移动端适配
+* 浏览器验收 15/15（真实 AI 发送端到端）；pytest 190 passed
+
+---
+
+## Phase 18：多轮对话 + SSE 流式输出 ✅ 已完成（2026-09-24）
+
+* 轻量内存会话（每会话最近 4 轮 / TTL 30 分钟 / 无效 id 静默新建），
+  模型可理解"它"等指代（真实 E2E：第二轮仅说"它最近90天怎么样？"，
+  模型自主调用 `get_fund_performance(000001, 90)`）
+* `POST /api/agent/chat/stream`（SSE）：工具状态实时推送；最终回复
+  先完整生成并通过红线检测、之后才分块流出（安全优先）
+* 前端流式渲染 + 新建会话 / 清空当前会话；pytest 200 passed；
+  真实多轮流式 E2E 与浏览器验收 13/13 全过
+
+---
+
+## Phase 19：项目收口与最终体检 ✅ 已完成（2026-09-24）
+
+* 全项目技术体检（Agent / Session / SSE / 异常 / 安全清单逐项核对），
+  修复：清理前端死代码、版本号升级 0.2.0
+* 全量回归：pytest 200 passed；真实 gpt-5.6 E2E（6 场景全覆盖 + 多轮流式）重跑全过；
+  浏览器核心流程 12/12；数据库验收前后一致（全程只读）
+* README 补全 Agent 架构 / Tool Calling / Session / SSE / 红线章节
+
+---
+
+## Phase 20：大盘行情 Agent Tool ✅ 已完成（2026-09-24）
+
+* 新增第 7 个只读工具 `get_market_index`：上证指数 / 深证成指 / 创业板指的
+  当前点位 / 涨跌点 / 涨跌幅 / 更新时间，附市场状态（交易中 / 已收盘 / 休市，
+  按行情更新时间如实判断）
+* 新增 `market_service.py`：腾讯公开行情接口（qt.gtimg.cn，GBK 文本协议）；
+  选型说明——东财 push2 行情域在本项目网络环境直连与代理均不稳定（连接被重置），
+  腾讯源实测直连稳定且数据一致
+* 接入现有 Agent Loop / SSE / 多轮会话：工具状态实时显示"正在查询大盘行情"，
+  数据源异常时模型如实转告（不编造数据）；前端沿用现有 UI
+* 真实 E2E："今天大盘怎么样？"→ 模型自主调用工具并基于真实行情回答
+  （三指数点位与数据源逐位一致）；数据库全程只读；pytest 208 passed
+
+---
+
 # 🔮 后续计划
 
 未来可能增加：
@@ -863,38 +1025,28 @@ GPT
 
 ---
 
-### 🤖 AI Agent
-
-最终希望实现：
+### 🤖 AI Agent ✅ 已实现（Phase 15-18）
 
 ```text
 用户：
-
-“帮我看看今天账户怎么样？”
-
+"帮我分析一下我现在的持仓"
         ↓
-
-AI Agent
-
-获取账户
+AI Agent（Tool Calling）
+获取大盘行情 / 持仓
     ↓
-获取基金数据
+自主判断需要哪些数据
     ↓
-获取市场数据
+调用查询工具（7 个只读工具）
     ↓
-检查监控规则
+基于后端精确计算结果综合分析
     ↓
-分析数据
-    ↓
-生成报告
-
-        ↓
-
-“今日账户发生了什么”
-“哪些基金贡献了主要收益”
-“有哪些异常情况”
-“有哪些风险值得关注”
+流式输出回复（含工具调用链展示）
 ```
+
+已实现："帮我看看今天账户怎么样" / "000001 最近90天怎么样" / "我的第一只持仓
+最近走势如何" 等自然语言提问，Agent 均能自主规划工具调用并基于真实数据回答；
+支持多轮指代理解（详见第 10 章）。后续可扩展：更多只读工具（搜索 / 风险检查 /
+目标进度）、跨重启的会话持久化、逐 token 流式输出。
 
 # 📷 项目截图
 
@@ -903,10 +1055,19 @@ AI Agent
 
 ### Dashboard 总览
 
-全局免责声明、账户概览、投资目标、收益趋势、持仓管理、基金关注（候选池）、
+全局免责声明、账户概览、投资目标、AI 助手、收益趋势、持仓管理、基金关注（候选池）、
 风险详情一屏直达：
 
 ![Dashboard](docs/screenshots/dashboard.png)
+
+### AI 助手（Agent 对话）
+
+自然语言提问 → Agent 自主调用查询工具 → 流式输出回答；
+展示工具调用链徽章与免责声明，支持多轮对话与新建会话：
+
+![AI 助手](docs/screenshots/agent-chat.png)
+
+![AI 助手移动端](docs/screenshots/agent-chat-mobile.png)
 
 ### 投资目标与基金关注
 
